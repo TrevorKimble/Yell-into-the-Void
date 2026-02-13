@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Yell into the Void',
-  description: 'Scream into the void',
+  description: 'Yell into the void',
 };
 
 export default function RootLayout({

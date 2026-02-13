@@ -62,7 +62,7 @@ export default function YellInput({ on_yell, is_hidden }: YellInputProps) {
             value={text}
             onChange={(e) => set_text(e.target.value.slice(0, MAX_CHARS))}
             onKeyDown={handle_key_down}
-            placeholder="Scream into the void..."
+            placeholder="Yell into the void..."
             rows={1}
             className="w-full bg-transparent text-white placeholder-gray-600 resize-none outline-none text-base leading-relaxed overflow-hidden"
             autoFocus
