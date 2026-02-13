@@ -832,19 +832,6 @@ const BlackHole = forwardRef<BlackHoleHandle, BlackHoleProps>(function BlackHole
         on_animation_done_ref.current?.();
       }
 
-      // Event horizon rings
-      ctx.beginPath();
-      ctx.arc(cx, cy, 82 * pulse_size, 0, Math.PI * 2);
-      ctx.strokeStyle = `rgba(255, 150, 100, ${0.2 + 0.08 * Math.sin(t * 2) + pulse_ref.current * 0.25})`;
-      ctx.lineWidth = 2.5 * pulse_size;
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.arc(cx, cy, 78 * pulse_size, 0, Math.PI * 2);
-      ctx.strokeStyle = `rgba(255, 200, 150, ${0.12 + 0.05 * Math.sin(t * 2.5) + pulse_ref.current * 0.15})`;
-      ctx.lineWidth = 1.5 * pulse_size;
-      ctx.stroke();
-
       animation_ref.current = requestAnimationFrame(draw);
     };
 
