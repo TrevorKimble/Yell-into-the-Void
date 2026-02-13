@@ -75,10 +75,10 @@ interface DebrisParticle {
 }
 
 interface Comet {
-  angle: number;
-  distance: number;
-  speed: number;
-  size: number;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
   tail_length: number;
 }
 
@@ -394,14 +394,41 @@ const BlackHole = forwardRef<BlackHoleHandle, BlackHoleProps>(function BlackHole
   }, []);
 
   const spawn_comet = useCallback(() => {
-    const angle = Math.random() * Math.PI * 2;
-    const distance = Math.max(center_ref.current.x, center_ref.current.y) * 1.2;
+    const canvas = canvas_ref.current;
+    if (!canvas) return;
+
+    // Spawn from random edge of screen
+    const side = Math.floor(Math.random() * 4);
+    let x, y, vx, vy;
+
+    if (side === 0) { // top
+      x = Math.random() * canvas.width;
+      y = -20;
+      vx = (Math.random() - 0.5) * 4;
+      vy = 3 + Math.random() * 5;
+    } else if (side === 1) { // right
+      x = canvas.width + 20;
+      y = Math.random() * canvas.height;
+      vx = -(3 + Math.random() * 5);
+      vy = (Math.random() - 0.5) * 4;
+    } else if (side === 2) { // bottom
+      x = Math.random() * canvas.width;
+      y = canvas.height + 20;
+      vx = (Math.random() - 0.5) * 4;
+      vy = -(3 + Math.random() * 5);
+    } else { // left
+      x = -20;
+      y = Math.random() * canvas.height;
+      vx = 3 + Math.random() * 5;
+      vy = (Math.random() - 0.5) * 4;
+    }
+
     comets_ref.current.push({
-      angle,
-      distance,
-      speed: 2 + Math.random() * 3,
-      size: 2 + Math.random() * 3,
-      tail_length: 40 + Math.random() * 60,
+      x,
+      y,
+      vx,
+      vy,
+      tail_length: 25 + Math.random() * 35,
     });
   }, []);
 
@@ -692,46 +719,32 @@ const BlackHole = forwardRef<BlackHoleHandle, BlackHoleProps>(function BlackHole
         }
       });
 
-      // Draw and update comets
+      // Draw and update comets (shooting stars)
       const remaining_comets: Comet[] = [];
       comets_ref.current.forEach((comet) => {
-        comet.distance -= comet.speed;
+        comet.x += comet.vx;
+        comet.y += comet.vy;
 
-        if (comet.distance > 0) {
-          const comet_x = cx + Math.cos(comet.angle) * comet.distance;
-          const comet_y = cy + Math.sin(comet.angle) * comet.distance;
+        // Check if still on screen (with margin)
+        if (comet.x > -50 && comet.x < canvas.width + 50 &&
+            comet.y > -50 && comet.y < canvas.height + 50) {
 
-          const tail_gradient = ctx.createLinearGradient(
-            comet_x, comet_y,
-            comet_x + Math.cos(comet.angle) * comet.tail_length,
-            comet_y + Math.sin(comet.angle) * comet.tail_length
-          );
-          tail_gradient.addColorStop(0, 'rgba(200, 220, 255, 0.6)');
-          tail_gradient.addColorStop(0.3, 'rgba(150, 200, 255, 0.3)');
-          tail_gradient.addColorStop(1, 'rgba(200, 220, 255, 0)');
+          // Draw small white streak
+          const tail_x = comet.x - comet.vx * (comet.tail_length / Math.sqrt(comet.vx * comet.vx + comet.vy * comet.vy));
+          const tail_y = comet.y - comet.vy * (comet.tail_length / Math.sqrt(comet.vx * comet.vx + comet.vy * comet.vy));
+
+          const tail_gradient = ctx.createLinearGradient(tail_x, tail_y, comet.x, comet.y);
+          tail_gradient.addColorStop(0, 'rgba(255, 255, 255, 0)');
+          tail_gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.4)');
+          tail_gradient.addColorStop(1, 'rgba(255, 255, 255, 0.8)');
 
           ctx.strokeStyle = tail_gradient;
-          ctx.lineWidth = comet.size;
+          ctx.lineWidth = 1.5;
+          ctx.lineCap = 'round';
           ctx.beginPath();
-          ctx.moveTo(comet_x, comet_y);
-          ctx.lineTo(
-            comet_x + Math.cos(comet.angle) * comet.tail_length,
-            comet_y + Math.sin(comet.angle) * comet.tail_length
-          );
+          ctx.moveTo(tail_x, tail_y);
+          ctx.lineTo(comet.x, comet.y);
           ctx.stroke();
-
-          ctx.beginPath();
-          ctx.arc(comet_x, comet_y, comet.size * 1.5, 0, Math.PI * 2);
-          ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-          ctx.fill();
-
-          if (comet.distance < 300) {
-            const flare_intensity = 1 - (comet.distance / 300);
-            ctx.beginPath();
-            ctx.arc(comet_x, comet_y, comet.size * 4 * flare_intensity, 0, Math.PI * 2);
-            ctx.fillStyle = `rgba(150, 180, 255, ${0.3 * flare_intensity})`;
-            ctx.fill();
-          }
 
           remaining_comets.push(comet);
         }
