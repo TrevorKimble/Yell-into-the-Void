@@ -112,13 +112,14 @@ const BlackHole = forwardRef<BlackHoleHandle, BlackHoleProps>(function BlackHole
 
   const init_accretion = useCallback(() => {
     const particles: AccretionParticle[] = [];
-    for (let i = 0; i < 180; i++) {
+    // Increase particle count for more density
+    for (let i = 0; i < 400; i++) {
       particles.push({
         angle: Math.random() * Math.PI * 2,
-        radius: 100 + Math.random() * 140,
-        speed: 0.006 + Math.random() * 0.012,
-        size: Math.random() * 3 + 0.8,
-        brightness: 0.3 + Math.random() * 0.7,
+        radius: 80 + Math.random() * 180,
+        speed: 0.008 + Math.random() * 0.016,
+        size: Math.random() * 2.5 + 0.5,
+        brightness: 0.4 + Math.random() * 0.6,
         color_offset: Math.random(),
       });
     }
@@ -387,59 +388,107 @@ const BlackHole = forwardRef<BlackHoleHandle, BlackHoleProps>(function BlackHole
       });
       comets_ref.current = remaining_comets;
 
-      // Draw accretion disk glow (outer) with pulse
+      // Draw accretion disk glow (outer) with pulse - multicolored
       const pulse_size = 1 + pulse_ref.current * 0.3;
-      const outer_glow = ctx.createRadialGradient(cx, cy, 80 * pulse_size, cx, cy, 320 * pulse_size);
-      outer_glow.addColorStop(0, 'rgba(80, 60, 200, 0)');
-      outer_glow.addColorStop(0.3, `rgba(100, 80, 220, ${0.08 + pulse_ref.current * 0.05})`);
-      outer_glow.addColorStop(0.6, `rgba(140, 80, 255, ${0.04 + pulse_ref.current * 0.03})`);
-      outer_glow.addColorStop(1, 'rgba(140, 80, 255, 0)');
+      const outer_glow = ctx.createRadialGradient(cx, cy, 80 * pulse_size, cx, cy, 340 * pulse_size);
+      outer_glow.addColorStop(0, 'rgba(255, 160, 80, 0)');
+      outer_glow.addColorStop(0.2, `rgba(255, 140, 60, ${0.06 + pulse_ref.current * 0.04})`);
+      outer_glow.addColorStop(0.4, `rgba(120, 180, 255, ${0.05 + pulse_ref.current * 0.03})`);
+      outer_glow.addColorStop(0.65, `rgba(100, 200, 220, ${0.03 + pulse_ref.current * 0.02})`);
+      outer_glow.addColorStop(0.85, `rgba(140, 100, 240, ${0.02 + pulse_ref.current * 0.01})`);
+      outer_glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
       ctx.fillStyle = outer_glow;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Draw accretion disk particles with more color variety
+      // Draw accretion disk particles with motion blur and color gradient
       accretion_ref.current.forEach((p) => {
         p.angle += p.speed;
-        const wobble = Math.sin(t * 3 + p.angle * 2) * 5;
+        const wobble = Math.sin(t * 3 + p.angle * 2) * 8;
         const px = cx + Math.cos(p.angle) * (p.radius + wobble);
-        const py = cy + Math.sin(p.angle) * (p.radius * 0.35 + wobble * 0.3);
+        const py = cy + Math.sin(p.angle) * (p.radius * 0.3 + wobble * 0.25);
 
-        // More vibrant color mixing (orange, blue, purple, pink)
+        // Color based on radius: hot (orange/yellow) inside, cool (blue/teal/purple) outside
+        const radius_ratio = (p.radius - 80) / 180; // 0 = inner, 1 = outer
         let r, g, b;
-        if (p.color_offset < 0.25) {
-          r = 255; g = 120; b = 80; // Orange
-        } else if (p.color_offset < 0.5) {
-          r = 80; g = 150; b = 255; // Blue
-        } else if (p.color_offset < 0.75) {
-          r = 180; g = 80; b = 255; // Purple
+
+        if (radius_ratio < 0.3) {
+          // Inner disk: orange to yellow
+          const mix = radius_ratio / 0.3;
+          r = 255;
+          g = 140 + mix * 80;
+          b = 60 - mix * 40;
+        } else if (radius_ratio < 0.6) {
+          // Middle disk: mix of orange, purple, and teal
+          const mix = (radius_ratio - 0.3) / 0.3;
+          const variation = p.color_offset;
+          if (variation < 0.4) {
+            // Orange to purple
+            r = 255 - mix * 80;
+            g = 180 - mix * 80;
+            b = 100 + mix * 120;
+          } else {
+            // Teal to cyan
+            r = 80 + mix * 40;
+            g = 180 + mix * 40;
+            b = 200 + mix * 40;
+          }
         } else {
-          r = 255; g = 100; b = 180; // Pink
+          // Outer disk: blues, teals, purples
+          const variation = p.color_offset;
+          if (variation < 0.33) {
+            r = 80; g = 140; b = 255; // Blue
+          } else if (variation < 0.66) {
+            r = 60; g = 200; b = 220; // Teal
+          } else {
+            r = 160; g = 100; b = 240; // Purple
+          }
         }
 
+        // Draw motion blur streak
+        const streak_length = p.speed * 12;
+        const prev_angle = p.angle - streak_length;
+        const prev_x = cx + Math.cos(prev_angle) * (p.radius + wobble);
+        const prev_y = cy + Math.sin(prev_angle) * (p.radius * 0.3 + wobble * 0.25);
+
+        // Streak gradient
+        const streak_gradient = ctx.createLinearGradient(prev_x, prev_y, px, py);
+        streak_gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0)`);
+        streak_gradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, ${p.brightness * 0.4})`);
+
+        ctx.strokeStyle = streak_gradient;
+        ctx.lineWidth = p.size * 1.2;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(prev_x, prev_y);
+        ctx.lineTo(px, py);
+        ctx.stroke();
+
+        // Particle glow
         ctx.beginPath();
         ctx.arc(px, py, p.size, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${p.brightness * 0.6})`;
+        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${p.brightness * 0.7})`;
         ctx.fill();
 
-        // Lens flare on bright particles near core
-        if (p.radius < 150 && p.brightness > 0.6) {
+        // Enhanced lens flare on particles near core
+        if (p.radius < 140 && p.brightness > 0.5) {
           ctx.beginPath();
-          ctx.arc(px, py, p.size * 3, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.1)`;
+          ctx.arc(px, py, p.size * 4, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${0.15 * p.brightness})`;
           ctx.fill();
         }
       });
 
-      // Draw inner accretion glow with breathing effect
+      // Draw inner accretion glow with breathing effect - warm colors
       const breath = 1 + Math.sin(t * 1.5) * 0.1;
-      const inner_glow = ctx.createRadialGradient(cx, cy, 40 * breath, cx, cy, 180 * breath);
-      inner_glow.addColorStop(0, `rgba(120, 80, 255, ${0.18 + pulse_ref.current * 0.1})`);
-      inner_glow.addColorStop(0.3, `rgba(100, 60, 220, ${0.1 + pulse_ref.current * 0.05})`);
-      inner_glow.addColorStop(0.7, 'rgba(80, 40, 180, 0.04)');
+      const inner_glow = ctx.createRadialGradient(cx, cy, 30 * breath, cx, cy, 160 * breath);
+      inner_glow.addColorStop(0, `rgba(255, 180, 100, ${0.25 + pulse_ref.current * 0.12})`);
+      inner_glow.addColorStop(0.25, `rgba(255, 140, 80, ${0.18 + pulse_ref.current * 0.08})`);
+      inner_glow.addColorStop(0.5, `rgba(200, 120, 160, ${0.12 + pulse_ref.current * 0.05})`);
+      inner_glow.addColorStop(0.75, 'rgba(120, 100, 200, 0.06)');
       inner_glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
       ctx.fillStyle = inner_glow;
       ctx.beginPath();
-      ctx.arc(cx, cy, 180 * breath, 0, Math.PI * 2);
+      ctx.arc(cx, cy, 160 * breath, 0, Math.PI * 2);
       ctx.fill();
 
       // Draw black hole core with pulse
@@ -529,11 +578,18 @@ const BlackHole = forwardRef<BlackHoleHandle, BlackHoleProps>(function BlackHole
         on_animation_done_ref.current?.();
       }
 
-      // Event horizon ring with pulse
+      // Event horizon ring with pulse - warmer glow
       ctx.beginPath();
       ctx.arc(cx, cy, 82 * pulse_size, 0, Math.PI * 2);
-      ctx.strokeStyle = `rgba(140, 100, 255, ${0.15 + 0.05 * Math.sin(t * 2) + pulse_ref.current * 0.2})`;
-      ctx.lineWidth = 2 * pulse_size;
+      ctx.strokeStyle = `rgba(255, 150, 100, ${0.2 + 0.08 * Math.sin(t * 2) + pulse_ref.current * 0.25})`;
+      ctx.lineWidth = 2.5 * pulse_size;
+      ctx.stroke();
+
+      // Add inner ring for depth
+      ctx.beginPath();
+      ctx.arc(cx, cy, 78 * pulse_size, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(255, 200, 150, ${0.12 + 0.05 * Math.sin(t * 2.5) + pulse_ref.current * 0.15})`;
+      ctx.lineWidth = 1.5 * pulse_size;
       ctx.stroke();
 
       animation_ref.current = requestAnimationFrame(draw);
